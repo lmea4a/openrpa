@@ -96,7 +96,7 @@ namespace OpenRPA.WorkItems.Activities
                 if (global.webSocketClient != null && global.webSocketClient.ws != null && global.webSocketClient.ws.State == System.Net.WebSockets.WebSocketState.Open) return;
                 await Task.Delay(ReconnectDelay);
                 ReconnectDelay += 5000;
-                if (ReconnectDelay > 60000 * 2) ReconnectDelay = 60000 * 2;
+                if (ReconnectDelay > 60000) ReconnectDelay = 60000;
                 connect_attempts++;
                 if (global.webSocketClient != null && global.webSocketClient.ws != null && global.webSocketClient.ws.State == System.Net.WebSockets.WebSocketState.Connecting) return;
                 if (global.webSocketClient != null && global.webSocketClient.ws != null && global.webSocketClient.ws.State == System.Net.WebSockets.WebSocketState.Open) return;

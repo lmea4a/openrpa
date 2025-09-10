@@ -26,6 +26,7 @@ namespace OpenRPA.Net
         public int websocket_package_size = 4096;
         public string url { get; set; }
         private CancellationTokenSource src = new CancellationTokenSource();
+        private readonly object _pendingUpdatesLock = new object();
         private static object _sendQueuelock = new object();
         private List<SocketMessage> _receiveQueue = new List<SocketMessage>();
         private List<SocketMessage> _sendQueue = new List<SocketMessage>();
@@ -67,6 +68,89 @@ namespace OpenRPA.Net
         {
             this.url = url;
             signedin = false;
+        }
+        private string GetPendingUpdatesPath()
+        {
+            var basepath = System.IO.Path.GetDirectoryName(OpenRPA.Interfaces.Config.SettingsFile);
+            try
+            {
+                if (string.IsNullOrEmpty(OpenRPA.Interfaces.Config.local.wsurl))
+                {
+                    basepath = System.IO.Path.Combine(basepath, "offline");
+                }
+                else
+                {
+                    basepath = System.IO.Path.Combine(basepath, new Uri(OpenRPA.Interfaces.Config.local.wsurl).Host);
+                }
+            }
+            catch { }
+            var path = System.IO.Path.Combine(basepath, "pending_workitem_updates");
+            return path;
+        }
+        private void EnqueuePendingUpdate(UpdateWorkitemMessage<OpenRPA.Interfaces.IWorkitem> q)
+        {
+            try
+            {
+                var path = GetPendingUpdatesPath();
+                if (!System.IO.Directory.Exists(path)) System.IO.Directory.CreateDirectory(path);
+                // Do not persist JWT; a fresh token will be injected when sending
+                q.jwt = null;
+                var json = JsonConvert.SerializeObject(q);
+                var fname = q._id;
+                if (string.IsNullOrEmpty(fname)) fname = Guid.NewGuid().ToString();
+                var file = System.IO.Path.Combine(path, fname + "-" + DateTime.UtcNow.ToString("yyyyMMddHHmmssfff") + ".json");
+                lock (_pendingUpdatesLock)
+                {
+                    System.IO.File.WriteAllText(file, json);
+                }
+                Log.Warning("Queued pending workitem update for offline send: " + q._id + " (state " + q.state + ")");
+            }
+            catch (Exception ex)
+            {
+                Log.Error("Failed to enqueue pending workitem update: " + ex.Message);
+            }
+        }
+        private async Task FlushPendingUpdates()
+        {
+            try
+            {
+                var path = GetPendingUpdatesPath();
+                if (!System.IO.Directory.Exists(path)) return;
+                var files = System.IO.Directory.GetFiles(path, "*.json");
+                if (files.Length == 0) return;
+                Log.Information("Flushing " + files.Length + " pending workitem updates");
+                foreach (var f in files.OrderBy(x => x))
+                {
+                    string json = null;
+                    try
+                    {
+                        lock (_pendingUpdatesLock)
+                        {
+                            json = System.IO.File.ReadAllText(f);
+                        }
+                        var q = JsonConvert.DeserializeObject<UpdateWorkitemMessage<OpenRPA.Interfaces.IWorkitem>>(json);
+                        if (q == null) { try { System.IO.File.Delete(f); } catch { } continue; }
+                        q.jwt = jwt; // inject latest token
+                        var res = await q.SendMessage<UpdateWorkitemMessage<OpenRPA.Interfaces.IWorkitem>>(this);
+                        if (res != null && string.IsNullOrEmpty(res.error))
+                        {
+                            try { System.IO.File.Delete(f); } catch { }
+                        }
+                        else
+                        {
+                            Log.Warning("Pending workitem update retry failed: " + (res?.error ?? "no response"));
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Log.Warning("Error sending pending workitem update: " + ex.Message);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Warning("FlushPendingUpdates error: " + ex.Message);
+            }
         }
         public async Task Connect()
         {
@@ -117,6 +201,7 @@ namespace OpenRPA.Net
                 Task receiveTask = Task.Run(async () => await receiveLoop(), src.Token);
                 Task pingTask = Task.Run(async () => await PingLoop(), src.Token);
                 OnOpen?.Invoke();
+                _ = Task.Run(async () => await FlushPendingUpdates());
             }
             catch (Exception ex)
             {
@@ -459,15 +544,26 @@ namespace OpenRPA.Net
             if (!string.IsNullOrEmpty(msg.replyto))
             {
                 if (msg.command != "pong") { Log.Network("(" + _messageQueue.Count + ") " + msg.command + " RESC: " + msg.replyto + "/" + msg.id); }
-                // else { Log.Network(msg.command + " / replyto: " + msg.replyto);  }
-                foreach (var qm in _messageQueue.ToList())
+                // Resolve and signal the waiting queued message in a thread-safe manner
+                if (System.Threading.Monitor.TryEnter(_messageQueue, 1000))
                 {
-                    if (qm != null && qm.msg.id == msg.replyto)
+                    try
                     {
-                        qm.reply = msg;
-                        qm.autoReset.Set();
-                        _messageQueue.Remove(qm);
-                        break;
+                        for (int i = 0; i < _messageQueue.Count; i++)
+                        {
+                            var qm = _messageQueue[i];
+                            if (qm != null && qm.msg.id == msg.replyto)
+                            {
+                                qm.reply = msg;
+                                qm.autoReset.Set();
+                                _messageQueue.RemoveAt(i);
+                                break;
+                            }
+                        }
+                    }
+                    finally
+                    {
+                        System.Threading.Monitor.Exit(_messageQueue);
                     }
                 }
             }
@@ -669,7 +765,17 @@ namespace OpenRPA.Net
                                     //    _messageQueue.Add(qm);
                                     //}
                                     Log.Network("(" + _messageQueue.Count + ") " + msg.command + " RSND: " + msg.id);
-                                    if (!_messageQueue.Contains(qm)) _messageQueue.Add(qm);
+                                    if (System.Threading.Monitor.TryEnter(_messageQueue, 1000))
+                                    {
+                                        try
+                                        {
+                                            if (!_messageQueue.Contains(qm)) _messageQueue.Add(qm);
+                                        }
+                                        finally
+                                        {
+                                            System.Threading.Monitor.Exit(_messageQueue);
+                                        }
+                                    }
                                     msg.SendMessage(this, 3);
                                 }
                                 else
@@ -680,7 +786,17 @@ namespace OpenRPA.Net
                             else if (signedin)
                             {
                                 Log.Network("(" + _messageQueue.Count + ") " + msg.command + " SEND: " + msg.id);
-                                if (!_messageQueue.Contains(qm)) _messageQueue.Add(qm);
+                                if (System.Threading.Monitor.TryEnter(_messageQueue, 1000))
+                                {
+                                    try
+                                    {
+                                        if (!_messageQueue.Contains(qm)) _messageQueue.Add(qm);
+                                    }
+                                    finally
+                                    {
+                                        System.Threading.Monitor.Exit(_messageQueue);
+                                    }
+                                }
                                 msg.SendMessage(this, 3);
                             }
                         }
@@ -1338,10 +1454,48 @@ namespace OpenRPA.Net
                     _files.Add(newf);
                 }
             q.files = _files.ToArray();
-            q = await q.SendMessage<UpdateWorkitemMessage<T>>(this);
-            if (q == null) throw new SocketException("Server returned an empty response");
-            if (!string.IsNullOrEmpty(q.error)) throw new SocketException(q.error);
-            return q.result;
+            try
+            {
+                q = await q.SendMessage<UpdateWorkitemMessage<T>>(this);
+                if (q == null || q.result == null)
+                {
+                    if (!isConnected || State != WebSocketState.Open)
+                    {
+                        // treat as offline and queue below via catch path
+                        throw new Exception("No response while offline");
+                    }
+                    throw new SocketException("Server returned an empty response");
+                }
+                if (!string.IsNullOrEmpty(q.error)) throw new SocketException(q.error);
+                return q.result;
+            }
+            catch (Exception ex)
+            {
+                var offline = ex.Message != null && (ex.Message.Contains("Not connected/signed in") || ex.Message.Contains("Gave up") || !isConnected || State != WebSocketState.Open);
+                if (offline)
+                {
+                    try
+                    {
+                        var q2 = new UpdateWorkitemMessage<OpenRPA.Interfaces.IWorkitem>();
+                        q2.msg.command = "updateworkitem";
+                        q2._id = item._id; q2.name = item.name; q2.state = item.state; q2.nextrun = item.nextrun;
+                        q2.errormessage = item.errormessage; q2.errorsource = item.errorsource; q2.errortype = item.errortype;
+                        q2.traceId = traceId; q2.spanId = spanId;
+                        q2.success_wiq = item.success_wiq; q2.success_wiqid = item.success_wiqid;
+                        q2.failed_wiq = item.failed_wiq; q2.failed_wiqid = item.failed_wiqid;
+                        q2.payload = item.payload; q2.ignoremaxretries = ignoremaxretries;
+                        q2.files = _files.ToArray();
+                        EnqueuePendingUpdate(q2);
+                        return (T)(object)item;
+                    }
+                    catch (Exception ex2)
+                    {
+                        Log.Error("Failed queuing offline workitem update: " + ex2.Message);
+                        throw;
+                    }
+                }
+                throw;
+            }
         }
         public async Task<T> PopWorkitem<T>(string wiq, string wiqid, string traceId, string spanId) where T : IWorkitem
         {
