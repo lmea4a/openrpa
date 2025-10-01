@@ -18,7 +18,7 @@ namespace OpenRPA.Net.Tests
             // Arrange: unique workitem id and ensure clean pending folder
             var client = WebSocketClient.Get("wss://unittest.local/");
             var workitemId = Guid.NewGuid().ToString();
-            var wi = new OpenRPA.WorkItems.Workitem
+            var wi = new OpenRPA.WorkItems.Activities.Workitem
             {
                 _id = workitemId,
                 name = "unittest",

@@ -90,7 +90,7 @@ namespace OpenRPA.Net.Tests.Integration
                         }
                         // Echo back a success reply with result
                         var replyObj = new UpdateWorkitemMessage<IWorkitem>();
-                        replyObj.result = new OpenRPA.WorkItems.Workitem { _id = Guid.NewGuid().ToString(), name = "done", state = "successful" };
+                        replyObj.result = new OpenRPA.WorkItems.Activities.Workitem { _id = Guid.NewGuid().ToString(), name = "done", state = "successful" };
                         var reply = new SocketShape
                         {
                             id = Guid.NewGuid().ToString(),

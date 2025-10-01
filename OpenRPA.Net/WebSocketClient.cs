@@ -71,16 +71,16 @@ namespace OpenRPA.Net
         }
         private string GetPendingUpdatesPath()
         {
-            var basepath = System.IO.Path.GetDirectoryName(OpenRPA.Interfaces.Config.SettingsFile);
+            var basepath = System.IO.Path.GetDirectoryName(Config.SettingsFile);
             try
             {
-                if (string.IsNullOrEmpty(OpenRPA.Interfaces.Config.local.wsurl))
+                if (string.IsNullOrEmpty(Config.local.wsurl))
                 {
                     basepath = System.IO.Path.Combine(basepath, "offline");
                 }
                 else
                 {
-                    basepath = System.IO.Path.Combine(basepath, new Uri(OpenRPA.Interfaces.Config.local.wsurl).Host);
+                    basepath = System.IO.Path.Combine(basepath, new Uri(Config.local.wsurl).Host);
                 }
             }
             catch { }

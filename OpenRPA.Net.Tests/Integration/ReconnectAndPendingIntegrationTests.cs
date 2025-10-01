@@ -56,7 +56,7 @@ namespace OpenRPA.Net.Tests.Integration
 
                 await client.Connect();
 
-                var wi = new OpenRPA.WorkItems.Workitem
+                var wi = new OpenRPA.WorkItems.Activities.Workitem
                 {
                     _id = Guid.NewGuid().ToString(),
                     name = "itest",

@@ -47,7 +47,7 @@ namespace OpenRPA.Net.Tests.Integration
             // Ensure there is a workitem to process
             if (addItem)
             {
-                var newItem = new OpenRPA.WorkItems.Workitem
+                var newItem = new OpenRPA.WorkItems.Activities.Workitem
                 {
                     name = "it-reconnect-test",
                     wiq = wiq,
