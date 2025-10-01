@@ -161,6 +161,23 @@ namespace OpenRPA.NM
                 getelement.tabid = ((NMElement)fromElement).message.tabid;
                 getelement.frameId = ((NMElement)fromElement).message.frameId;
             }
+            else if (fromElement == null && selector != null && selector.Count > 0)
+            {
+                // No anchor: try resolve frameId from root selector's frame property
+                try
+                {
+                    var root = selector[0];
+                    var frameProp = root.Properties.Where(x => x.Name == "frame").FirstOrDefault();
+                    if (frameProp != null && !string.IsNullOrEmpty(frameProp.Value))
+                    {
+                        var resolved = TryResolveFrameId(frameProp.Value);
+                        if (resolved.HasValue) getelement.frameId = resolved.Value;
+                        else getelement.frameId = getelement.frameId <= 0 ? -1 : getelement.frameId;
+                    }
+                    // Note: do not override window/tab here when no anchor is provided.
+                }
+                catch { }
+            }
             subresult = NMHook.sendMessageResult(getelement, PluginConfig.protocol_timeout);
             if (subresult != null)
                 if (subresult.results != null)
@@ -179,6 +196,42 @@ namespace OpenRPA.NM
                         }
                     }
             return results.ToArray();
+        }
+
+        // Resolve frameId from various stored formats (numeric id, JSON with frameId, JSON array/path, delimited path).
+        private static long? TryResolveFrameId(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value)) return null;
+            // Plain numeric
+            if (long.TryParse(value, out var fid)) return fid;
+            // JSON object with frameId
+            try
+            {
+                var t = Newtonsoft.Json.Linq.JToken.Parse(value);
+                if (t != null)
+                {
+                    if (t.Type == Newtonsoft.Json.Linq.JTokenType.Object)
+                    {
+                        var obj = (Newtonsoft.Json.Linq.JObject)t;
+                        var v = obj["frameId"] ?? obj["frameid"] ?? obj["id"];
+                        if (v != null && long.TryParse(v.ToString(), out fid)) return fid;
+                    }
+                    if (t.Type == Newtonsoft.Json.Linq.JTokenType.Array)
+                    {
+                        // e.g. [0,3,12] take the last segment as leaf frame id
+                        var arr = (Newtonsoft.Json.Linq.JArray)t;
+                        for (int i = arr.Count - 1; i >= 0; i--)
+                        {
+                            if (long.TryParse(arr[i].ToString(), out fid)) return fid;
+                        }
+                    }
+                }
+            }
+            catch { }
+            // Delimited path: "0>2>15" or "0/2/15"
+            var parts = value.Split(new[] { '>', '/', '\\', ',', '|' }, StringSplitOptions.RemoveEmptyEntries);
+            if (parts.Length > 0 && long.TryParse(parts.Last(), out fid)) return fid;
+            return null;
         }
     }
 }

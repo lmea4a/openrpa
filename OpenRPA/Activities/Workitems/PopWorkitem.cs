@@ -9,6 +9,7 @@ using System.Text;
 using System.Threading.Tasks;
 using OpenRPA.Interfaces.Input;
 using OpenRPA.Interfaces.entity;
+using System.Threading;
 
 namespace OpenRPA.WorkItems
 {
@@ -36,15 +37,35 @@ namespace OpenRPA.WorkItems
             var folder = Folder.Get(context);
             if (!string.IsNullOrEmpty(folder)) folder = Environment.ExpandEnvironmentVariables(folder);
             if (string.IsNullOrEmpty(folder)) folder = Interfaces.Extensions.ProjectsDirectory;
-            var result = await global.webSocketClient.PopWorkitem<Workitem>(wiq.Get(context), wiqid.Get(context), traceId, spanId);
-            if(result != null)
+            IWorkitem result = null;
+            int backoff = 2000; // 2s
+            while (true)
             {
-                foreach (var file in result.files)
+                try
                 {
-                    await global.webSocketClient.DownloadFileAndSave(null, file._id, folder, false, false, traceId, spanId);
+                    result = await global.webSocketClient.PopWorkitem<Workitem>(wiq.Get(context), wiqid.Get(context), traceId, spanId);
+                    if (result != null && result.files != null)
+                    {
+                        foreach (var file in result.files)
+                        {
+                            await global.webSocketClient.DownloadFileAndSave(null, file._id, folder, false, false, traceId, spanId);
+                        }
+                    }
+                    return result;
+                }
+                catch (Exception ex)
+                {
+                    if (IsTransientNetworkError(ex))
+                    {
+                        Log.Warning($"PopWorkitem transient error: {ex.Message}. Retrying in {backoff/1000}s");
+                        await Task.Delay(backoff);
+                        backoff += 5000;
+                        if (backoff > 60000) backoff = 60000; // cap at 60s
+                        continue;
+                    }
+                    throw;
                 }
             }
-            return result;
         }
         protected override void AfterExecute(AsyncCodeActivityContext context, object result)
         {
@@ -67,6 +88,23 @@ namespace OpenRPA.WorkItems
             {
                 base.DisplayName = value;
             }
+        }
+        private bool IsTransientNetworkError(Exception ex)
+        {
+            try
+            {
+                var msg = ex.Message == null ? string.Empty : ex.Message.ToLowerInvariant();
+                if (msg.Contains("not connected") || msg.Contains("not signed in")) return true;
+                if (msg.Contains("gave up") || msg.Contains("jwt must be provided")) return true;
+                // Fallback to current connection state if available
+                try
+                {
+                    if (global.webSocketClient == null || !global.webSocketClient.isConnected) return true;
+                }
+                catch { }
+            }
+            catch { }
+            return false;
         }
     }
 }
