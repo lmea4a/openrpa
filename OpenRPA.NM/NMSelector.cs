@@ -171,8 +171,15 @@ namespace OpenRPA.NM
                     if (frameProp != null && !string.IsNullOrEmpty(frameProp.Value))
                     {
                         var resolved = TryResolveFrameId(frameProp.Value);
-                        if (resolved.HasValue) getelement.frameId = resolved.Value;
-                        else getelement.frameId = getelement.frameId <= 0 ? -1 : getelement.frameId;
+                        if (resolved.HasValue)
+                        {
+                            getelement.frameId = resolved.Value;
+                        }
+                        else
+                        {
+                            Log.Warning("NMSelector: Unable to parse frame property on root selector. Falling back. Value: " + frameProp.Value);
+                            getelement.frameId = getelement.frameId <= 0 ? -1 : getelement.frameId;
+                        }
                     }
                     // Note: do not override window/tab here when no anchor is provided.
                 }
