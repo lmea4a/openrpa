@@ -27,7 +27,9 @@ namespace OpenRPA.NM
             {
                 Properties.Add(new SelectorItemProperty("Selector", "NM"));
                 Properties.Add(new SelectorItemProperty("browser", element.message.browser));
-                Properties.Add(new SelectorItemProperty("frame", element.message.frame));
+                // Use numeric frameId if available to allow anchorless iframe selections.
+                var frameValue = element.message.frameId > -1 ? element.message.frameId.ToString() : element.message.frame;
+                Properties.Add(new SelectorItemProperty("frame", frameValue));
                 Properties.Add(new SelectorItemProperty("url", element.message.tab.url));
                 Enabled = true;
                 canDisable = false;
