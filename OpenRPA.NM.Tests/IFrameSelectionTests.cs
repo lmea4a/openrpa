@@ -58,11 +58,15 @@ namespace OpenRPA.NM.Tests
             var frames = NMSelector.GetElementsWithuiSelector(new NMSelector(findFrameSel), null, 1);
             Assert.IsNotNull(frames, "Frames array is null");
             Assert.IsTrue(frames.Length >= 1, "Iframe not found on parent page");
+            var iframe = frames[0];
+            Assert.AreEqual("testframe", iframe.id);
 
             // 2) Find inner element inside iframe using From=frame
             var innerSel = "[ {\"cssselector\":\"#inner\"} ]";
             var inner = NMSelector.GetElementsWithuiSelector(new NMSelector(innerSel), frames[0], 1);
             Assert.IsTrue(inner.Length >= 1, "Inner element inside iframe not found using anchor-based selection");
+            var inputField = inner[0];
+            Assert.AreEqual("HelloIframe", inputField.Value);
         }
 
         [TestMethod]

@@ -96,6 +96,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "OpenRPA.Storage.Filesystem"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OpenRPA.Net.Tests", "OpenRPA.Net.Tests\OpenRPA.Net.Tests.csproj", "{E896C059-6AEE-2ECC-BA58-ABDED48317E3}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OpenRPA.NM.Tests", "OpenRPA.NM.Tests\OpenRPA.NM.Tests.csproj", "{6833F495-E601-4B81-5A53-535DE5AC1365}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		All|Any CPU = All|Any CPU
@@ -562,6 +564,18 @@ Global
 		{E896C059-6AEE-2ECC-BA58-ABDED48317E3}.Release|Any CPU.Build.0 = Release|Any CPU
 		{E896C059-6AEE-2ECC-BA58-ABDED48317E3}.Release|x86.ActiveCfg = Release|Any CPU
 		{E896C059-6AEE-2ECC-BA58-ABDED48317E3}.Release|x86.Build.0 = Release|Any CPU
+		{6833F495-E601-4B81-5A53-535DE5AC1365}.All|Any CPU.ActiveCfg = Debug|Any CPU
+		{6833F495-E601-4B81-5A53-535DE5AC1365}.All|Any CPU.Build.0 = Debug|Any CPU
+		{6833F495-E601-4B81-5A53-535DE5AC1365}.All|x86.ActiveCfg = Debug|Any CPU
+		{6833F495-E601-4B81-5A53-535DE5AC1365}.All|x86.Build.0 = Debug|Any CPU
+		{6833F495-E601-4B81-5A53-535DE5AC1365}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6833F495-E601-4B81-5A53-535DE5AC1365}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6833F495-E601-4B81-5A53-535DE5AC1365}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{6833F495-E601-4B81-5A53-535DE5AC1365}.Debug|x86.Build.0 = Debug|Any CPU
+		{6833F495-E601-4B81-5A53-535DE5AC1365}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6833F495-E601-4B81-5A53-535DE5AC1365}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6833F495-E601-4B81-5A53-535DE5AC1365}.Release|x86.ActiveCfg = Release|Any CPU
+		{6833F495-E601-4B81-5A53-535DE5AC1365}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -574,7 +588,7 @@ Global
 		{4B4CD933-BF62-4F92-B8FA-6771758C5197} = {86A0EDE3-9272-4CA5-A499-F2E1190A80EE}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
-		SolutionGuid = {40D49710-F666-4479-96E1-FFC3BA0D3D5A}
 		BuildVersion_StartDate = 2000/1/1
+		SolutionGuid = {40D49710-F666-4479-96E1-FFC3BA0D3D5A}
 	EndGlobalSection
 EndGlobal
