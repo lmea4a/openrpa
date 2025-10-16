@@ -112,11 +112,27 @@ namespace OpenRPA.NM
 
             if (fromElement != null)
             {
-                getelement.frameId = fromNMElement.message.frameId;
-                getelement.tabid = fromNMElement.message.tabid;
-                getelement.windowId = fromNMElement.message.windowId;
-                fromcssPath = fromNMElement.cssselector;
-                fromxPath = fromNMElement.xpath;
+                // If anchor is an iframe/frame element, do not constrain to the parent frame.
+                // Broadcast (frameId = -1) so background can target the child frame correctly.
+                bool anchorIsIFrame = false;
+                try { anchorIsIFrame = !string.IsNullOrEmpty(fromNMElement.tagname) && (fromNMElement.tagname.Equals("iframe", StringComparison.OrdinalIgnoreCase) || fromNMElement.tagname.Equals("frame", StringComparison.OrdinalIgnoreCase)); } catch { }
+
+                if (anchorIsIFrame)
+                {
+                    getelement.frameId = -1;
+                    getelement.tabid = fromNMElement.message.tabid;
+                    getelement.windowId = fromNMElement.message.windowId;
+                    fromcssPath = string.Empty;
+                    fromxPath = string.Empty;
+                }
+                else
+                {
+                    getelement.frameId = fromNMElement.message.frameId;
+                    getelement.tabid = fromNMElement.message.tabid;
+                    getelement.windowId = fromNMElement.message.windowId;
+                    fromcssPath = fromNMElement.cssselector;
+                    fromxPath = fromNMElement.xpath;
+                }
 
                 if (!string.IsNullOrEmpty(selector[0].use_zn) && fromNMElement.zn_id > 0)
                 {
@@ -133,13 +149,13 @@ namespace OpenRPA.NM
                         fromxPath = "//*[@zn_id=\"" + fromNMElement.zn_id + "\"]";
                     }
                 }
-                else if (!string.IsNullOrEmpty(xpath) && !string.IsNullOrEmpty(fromNMElement.xpath))
+                else if (!anchorIsIFrame && !string.IsNullOrEmpty(xpath) && !string.IsNullOrEmpty(fromNMElement.xpath))
                 {
                     fromcssPath = "";
                     fromxPath = "";
                     xpath = fromNMElement.xpath + xpath;
                 }
-                else if (!string.IsNullOrEmpty(cssselector) && !string.IsNullOrEmpty(fromNMElement.cssselector))
+                else if (!anchorIsIFrame && !string.IsNullOrEmpty(cssselector) && !string.IsNullOrEmpty(fromNMElement.cssselector))
                 {
                     //fromcssPath = "";
                     //fromxPath = "";

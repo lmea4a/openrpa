@@ -649,6 +649,20 @@ var tabssendMessage = function (tabid, message) {
                         var tabsList = await tabsquery();
                     }
 
+                    // Ensure frameId is populated on single-frame responses as well
+                    try {
+                        if (message.frameId > -1 && result) {
+                            if (result.results && result.results.length > 0) {
+                                for (var z = 0; z < result.results.length; z++) {
+                                    result.results[z].frameId = message.frameId;
+                                }
+                            } else {
+                                // result is a single object
+                                result.frameId = message.frameId;
+                            }
+                        }
+                    } catch (e) { console.debug(e); }
+
                 } catch (e) {
                     lasterror = e;
                     console.debug(e);

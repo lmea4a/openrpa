@@ -752,6 +752,18 @@ var tabssendMessage = function (tabid, message) {
                 } catch (e) {
                     lasterror = e;
                 }
+                // Ensure frameId is populated on single-frame responses as well
+                try {
+                    if (message.frameId > -1 && result) {
+                        if (result.results && result.results.length > 0) {
+                            for (var z = 0; z < result.results.length; z++) {
+                                result.results[z].frameId = message.frameId;
+                            }
+                        } else {
+                            result.frameId = message.frameId;
+                        }
+                    }
+                } catch (e) { console.debug(e); }
                 if (result == null) {
                     try {
                         console.log("result == null, so send to tab id #" + tabid);
